@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>កម្មវិធីបញ្ចូលទិន្នន័យ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Moul&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Koulen', sans-serif;
+        }
+        .khmer-moul {
+            font-family: 'Moul', serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6 khmer-moul">កម្មវិធីបញ្ចូលទិន្នន័យ</h1>
+
+        <form id="dataForm" class="space-y-6">
+            <!-- ID Input -->
+            <div>
+                <label for="id_number" class="block text-lg font-medium text-gray-700">អត្តលេខ</label>
+                <input type="text" id="id_number" name="id_number" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-lg">
+            </div>
+
+            <!-- Name Input -->
+            <div>
+                <label for="name" class="block text-lg font-medium text-gray-700">ឈ្មោះ</label>
+                <input type="text" id="name" name="name" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-lg">
+            </div>
+
+            <!-- Photo Section -->
+            <div>
+                <label class="block text-lg font-medium text-gray-700">រូបថត</label>
+                <div class="mt-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                    <div id="videoContainer" class="hidden">
+                         <video id="video" class="w-full rounded-md" autoplay playsinline></video>
+                         <button type="button" id="captureBtn" class="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">ថតរូប</button>
+                    </div>
+                    <img id="photoPreview" src="https://placehold.co/400x300/e2e8f0/64748b?text=រូបថតរបស់អ្នក" alt="Photo Preview" class="w-full h-auto rounded-md mx-auto">
+                    <canvas id="canvas" class="hidden"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <button type="button" id="startWebcamBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition">បើកកាមេរ៉ា</button>
+                    <button type="button" id="uploadBtn" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition">បញ្ជូនរូបពីកុំព្យូទ័រ</button>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn" class="w-full bg-gray-800 text-white py-3 px-4 rounded-md hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-700 transition text-xl">
+                <span id="submitText">រក្សាទុកទិន្នន័យ</span>
+                <span id="loadingSpinner" class="hidden">កំពុងដំណើរការ...</span>
+            </button>
+        </form>
+
+        <!-- Status Message -->
+        <div id="statusMessage" class="mt-4 text-center text-lg"></div>
+    </div>
+
+    <script>
+        // !! IMPORTANT !!
+        // !! សំខាន់ !! សូម​ប្តូរ​ URL ខាងក្រោម​នេះ​ជាមួយ​នឹង Web App URL របស់​អ្នក​ដែល​បាន​ពី Google Apps Script
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx4G0cBxxrR7DqZWIPTtPdW8h3705GF1sjVo4ISABOmNlJ1-uRhZOCPVpV9WTBe-Fs/exec";
+
+        // DOM Elements
+        const form = document.getElementById('dataForm');
+        const idInput = document.getElementById('id_number');
+        const nameInput = document.getElementById('name');
+        const videoContainer = document.getElementById('videoContainer');
+        const video = document.getElementById('video');
+        const photoPreview = document.getElementById('photoPreview');
+        const canvas = document.getElementById('canvas');
+        const startWebcamBtn = document.getElementById('startWebcamBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitText = document.getElementById('submitText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let stream = null;
+        let imageDataUrl = null;
+
+        // --- Webcam Functions ---
+        startWebcamBtn.addEventListener('click', async () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                videoContainer.classList.remove('hidden');
+                photoPreview.classList.add('hidden');
+                statusMessage.textContent = '';
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                statusMessage.textContent = 'មិនអាចបើកកាមេរ៉ាបានទេ។';
+                statusMessage.className = 'mt-4 text-center text-lg text-red-600';
+            }
+        });
+
+        captureBtn.addEventListener('click', () => {
+            if (stream) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                imageDataUrl = canvas.toDataURL('image/jpeg');
+                photoPreview.src = imageDataUrl;
+                photoPreview.classList.remove('hidden');
+                videoContainer.classList.add('hidden');
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        });
+
+        // --- File Upload Functions ---
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageDataUrl = e.target.result;
+                    photoPreview.src = imageDataUrl;
+                    photoPreview.classList.remove('hidden');
+                    videoContainer.classList.add('hidden');
+                     if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+
+        // --- Form Submission ---
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            if (!idInput.value || !nameInput.value) {
+                statusMessage.textContent = 'សូមបំពេញអត្តលេខ និងឈ្មោះ។';
+                statusMessage.className = 'mt-4 text-center text-lg text-red-600';
+                return;
+            }
+
+            if (!imageDataUrl) {
+                statusMessage.textContent = 'សូមថតរូប ឬជ្រើសរើសរូបភាព។';
+                statusMessage.className = 'mt-4 text-center text-lg text-red-600';
+                return;
+            }
+            
+            if (SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+                statusMessage.textContent = 'កំហុស! សូម​ធ្វើការ​កំណត់ค่า SCRIPT_URL ជាមុនសិន។';
+                statusMessage.className = 'mt-4 text-center text-lg text-red-600';
+                return;
+            }
+
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            statusMessage.textContent = 'កំពុងបញ្ជូនទិន្នន័យ...';
+            statusMessage.className = 'mt-4 text-center text-lg text-blue-600';
+
+            // Prepare data for submission
+            const base64Data = imageDataUrl.split(',')[1];
+            const imageType = imageDataUrl.split(';')[0].split(':')[1];
+
+            const payload = {
+                id: idInput.value,
+                name: nameInput.value,
+                imageData: base64Data,
+                imageType: imageType
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8', // Apps Script web apps often work best with text/plain
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusMessage.textContent = 'ការរក្សាទុកទិន្នន័យបានជោគជ័យ!';
+                    statusMessage.className = 'mt-4 text-center text-lg text-green-600';
+                    form.reset();
+                    imageDataUrl = null;
+                    photoPreview.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=រូបថតរបស់អ្នក';
+                } else {
+                    throw new Error(data.message || 'An unknown error occurred.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusMessage.textContent = 'មានបញ្ហាពេលរក្សាទុកទិន្នន័យ: ' + error.message;
+                statusMessage.className = 'mt-4 text-center text-lg text-red-600';
+            })
+            .finally(() => {
+                // Hide loading state
+                submitBtn.disabled = false;
+                submitText.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
