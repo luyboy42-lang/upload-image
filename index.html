@@ -75,8 +75,8 @@
 
     <script>
         // --- Configuration ---
-        // !! សំខាន់ !! សូម​បិទភ្ជាប់ Web App URL ថ្មី​របស់​អ្នក​នៅ​ទីនេះ
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx460cBxxrR7DgZWiPTtPdW8h37G56F1s4kGqJ317y_v_Pv9WTBe-Fs/exec'; // <--- បិទភ្ជាប់ URL ថ្មី​របស់​អ្នក​នៅ​ទីនេះ
+        // !! សំខាន់ !! សូម​បិទភ្ជាប់ Web App URL "ថ្មី" របស់​អ្នក​នៅ​ទីនេះ បន្ទាប់​ពី​បាន Deploy ជា​ថ្មី
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwo_Je5rEhkNrt4lQyxZoGeA6-eBq9TKfmROm4GSAni2fzNEQcRmxo3z0nz9cdUDiI/exec'; // <--- បិទភ្ជាប់ URL ថ្មី​របស់​អ្នក​នៅ​ទីនេះ
 
         // --- DOM Elements ---
         const video = document.getElementById('video');
@@ -195,6 +195,11 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            if (SCRIPT_URL === 'PASTE_YOUR_NEW_WEB_APP_URL_HERE') {
+                showStatus('សូម​ចូល​ទៅ​កែ​កូដ index.html ហើយ​ដាក់ Web App URL ថ្មី​របស់​អ្នក​ជា​មុន​សិន។', 'error');
+                return;
+            }
+
             const id = document.getElementById('id').value;
             const name = document.getElementById('name').value;
 
@@ -216,16 +221,15 @@
 
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'cors', // Important for cross-origin requests
+                    mode: 'cors',
                     cache: 'no-cache',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'text/plain;charset=utf-8', // Use text/plain for Apps Script POST
                     },
                     body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) {
-                   // This block might not be reached on CORS failure, but it's good practice
                    throw new Error(`Network response was not ok: ${response.statusText}`);
                 }
                 
@@ -237,13 +241,11 @@
                     photoPreview.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=រូបថតរបស់អ្នក';
                     imageData = null;
                 } else {
-                    // This will show errors coming from the Apps Script logic
                     throw new Error(result.message || 'An unknown error occurred in the script.');
                 }
 
             } catch (error) {
                 console.error('Error submitting form:', error);
-                // This is the most common error message shown for CORS issues
                 showStatus(`មាន​បញ្ហា​ក្នុង​ការ​បញ្ជូន​ទិន្នន័យ: ${error.message}. សូម​ពិនិត្យ​មើល Apps Script Deployment របស់​អ្នក។`, 'error');
             } finally {
                 submitBtn.disabled = false;
